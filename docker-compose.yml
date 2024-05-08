@@ -1,0 +1,71 @@
+version: "3"
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: _docker/app/Dockerfile
+        container_name: ${DOCKER_PREFIX}_app
+        restart: 'unless-stopped'
+        working_dir: /var/www
+        volumes:
+            - ./www:/var/www
+            - ./_docker/php/php.ini:/usr/local/etc/php/php.ini
+        depends_on:
+            - redis
+
+    redis:
+        image: redis:latest
+        container_name: ${DOCKER_PREFIX}_redis
+        restart: 'unless-stopped'
+
+    web:
+        build:
+            context: .
+            dockerfile: _docker/nginx/Dockerfile
+        container_name: ${DOCKER_PREFIX}_nginx
+        restart: 'unless-stopped'
+        working_dir: /var/www
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./www:/var/www
+            - nginx_sites:/etc/nginx/conf.d
+            - letsencrypt:/etc/letsencrypt/
+            - ./logs:/var/log/nginx
+        depends_on:
+            - app
+
+    db:
+        image: mysql:latest
+        container_name: ${DOCKER_PREFIX}_db
+        restart: 'unless-stopped'
+        volumes:
+            - ./_docker/mysql/my.cnf:/etc/mysql/my.cnf
+            - db-data:/var/lib/mysql
+            - ./logs:/var/log/mysql
+        environment:
+            - MYSQL_DATABASE=${DB_DATABASE}
+            - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+        command: mysqld --character-set-server=utf8 --collation-server=utf8_unicode_ci
+        depends_on:
+            - app
+
+    phpmyadmin:
+        image: phpmyadmin
+        container_name: ${DOCKER_PREFIX}_phpmyadmin
+        restart: 'unless-stopped'
+        environment:
+            - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+            - PMA_HOST=db
+            - UPLOAD_LIMIT=256M
+        ports:
+            - ${PHPMYADMIN_PORT-2525}:80
+        depends_on:
+            - db
+
+volumes:
+    db-data:
+    nginx_sites:
+    letsencrypt:
