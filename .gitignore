@@ -1,4 +1,4 @@
 .env
 /logs
 !/www/html
-/www/
+/www/*
